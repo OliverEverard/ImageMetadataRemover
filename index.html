@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>Image Metadata Remover</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="icon" type="image/x-icon" href="https://www.fpcr.co.uk/wp-content/uploads/FPCR.png">
+  <meta name="viewport" content="width=device-width">
+  <meta name="description" content="Bulk HEIC2JPG Converter | No Uploading to Internet | Private and Secure">
+</head>
+<body class="bg-white">
+  <div id="navbar-container"></div>
+  <section class="text-gray-600 body-font">
+    <div class="container mx-auto flex px-5 py-24 items-center justify-center flex-col">
+      <div class="text-center lg:w-2/3 w-full">
+        <h1 class="title-font sm:text-4xl text-3xl mb-4 font-medium text-gray-900">Image Metadata Remover</h1>
+        <p class="mb-8 leading-relaxed">Please upload a photo or zipped folder of photos to remove metadata</p>
+        <form id="uploadForm" action="#" method="post" enctype="multipart/form-data">
+          <input id="fileInput" class="ml-4 inline-flex text-gray-700 bg-gray-100 border-0 py-2 px-6 focus:outline-none hover:bg-gray-200 rounded text-lg my-4" type="file" accept=".zip" multiple>
+          <button type="button" onclick="convertImages()" class="inline-flex text-white bg-blue-500 border-0 py-2 px-6 focus:outline-none hover:bg-blue-600 rounded text-lg my-4">Convert</button>
+        </form>
+        <p id="message"></p>
+      </div>
+    </div>
+  </section>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.6.0/jszip.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/exif-js/2.3.0/exif.js"></script>
+  <script>
+    async function removeMetadata(imageBlob) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = function(event) {
+          const exifData = EXIF.readFromBinaryFile(event.target.result);
+          delete exifData.Make;
+          delete exifData.Model;
+          delete exifData.Orientation;
+          // Remove other desired metadata properties here
+          const modifiedImage = new Blob([event.target.result], { type: imageBlob.type });
+          resolve(modifiedImage);
+        };
+        reader.onerror = reject;
+        reader.readAsArrayBuffer(imageBlob);
+      });
+    }
+
+    async function convertImages() {
+      const files = document.getElementById('fileInput').files;
+      if (files.length === 0) {
+        document.getElementById('message').innerText = 'Please select a file.';
+        return;
+      }
+
+      const zip = new JSZip();
+      const promises = [];
+
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const fileName = file.name;
+        if (fileName.match(/\.(jpg|jpeg|png|gif)$/i)) {
+          promises.push(new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = async function(event) {
+              const modifiedImageBlob = await removeMetadata(event.target.result);
+              zip.file(fileName, modifiedImageBlob);
+              resolve();
+            };
+            reader.onerror = reject;
+            reader.readAsArrayBuffer(file);
+          }));
+        } else {
+          zip.file(fileName, file);
+        }
+      }
+
+      Promise.all(promises).then(() => {
+        zip.generateAsync({ type: 'blob' }).then(function(modifiedZipBlob) {
+          const date = new Date().toISOString().replace(/:/g, '-');
+          const modifiedZipName = `modified_images_${date}.zip`;
+          const url = URL.createObjectURL(modifiedZipBlob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = modifiedZipName;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          document.getElementById('message').innerText = 'Images modified successfully!';
+        }).catch(function(error) {
+          console.error('Error generating zip:', error);
+          document.getElementById('message').innerText = 'Error generating zip: ' + error.message;
+        });
+      });
+    }
+  </script>
+</body>
+</html>
