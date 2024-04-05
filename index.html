@@ -27,21 +27,23 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/exif-js/2.3.0/exif.js"></script>
   <script>
     async function removeMetadata(imageBlob) {
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = function(event) {
-          const exifData = EXIF.readFromBinaryFile(event.target.result);
-          delete exifData.Make;
-          delete exifData.Model;
-          delete exifData.Orientation;
-          // Remove other desired metadata properties here
-          const modifiedImage = new Blob([event.target.result], { type: imageBlob.type });
-          resolve(modifiedImage);
-        };
-        reader.onerror = reject;
-        reader.readAsArrayBuffer(imageBlob);
-      });
-    }
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = function(event) {
+      const exifData = EXIF.readFromBinaryFile(event.target.result);
+      for (const property in exifData) {
+        if (exifData.hasOwnProperty(property)) {
+          delete exifData[property];
+        }
+      }
+      const modifiedImage = new Blob([event.target.result], { type: imageBlob.type });
+      resolve(modifiedImage);
+    };
+    reader.onerror = reject;
+    reader.readAsArrayBuffer(imageBlob);
+  });
+}
+
 
     async function shiftColorBottomRow(imageData) {
       const { width, height, data } = imageData;
