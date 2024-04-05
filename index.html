@@ -3,8 +3,9 @@
 <head>
   <title>Image Metadata Remover</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="icon" type="image/x-icon" href="https://www.fpcr.co.uk/wp-content/uploads/FPCR.png">
   <meta name="viewport" content="width=device-width">
-  <meta name="description" content="Image Metadata Remover | No Uploading to Internet | Private and Secure">
+  <meta name="description" content="Bulk HEIC2JPG Converter | No Uploading to Internet | Private and Secure">
 </head>
 <body class="bg-white">
   <div id="navbar-container"></div>
@@ -42,6 +43,17 @@
       });
     }
 
+    async function shiftColorBottomRow(imageData) {
+      const { width, height, data } = imageData;
+      const bottomRowStart = (height - 1) * width * 4;
+      for (let i = 0; i < width * 4; i += 4) {
+        const shift = Math.floor(Math.random() * 5) + 1;
+        data[bottomRowStart + i] = Math.min(data[bottomRowStart + i] + shift, 255); // Red
+        data[bottomRowStart + i + 1] = Math.min(data[bottomRowStart + i + 1] + shift, 255); // Green
+        data[bottomRowStart + i + 2] = Math.min(data[bottomRowStart + i + 2] + shift, 255); // Blue
+      }
+    }
+
     async function convertImages() {
       const files = document.getElementById('fileInput').files;
       if (files.length === 0) {
@@ -60,8 +72,22 @@
             const reader = new FileReader();
             reader.onload = async function(event) {
               const modifiedImageBlob = await removeMetadata(event.target.result);
-              zip.file(fileName, modifiedImageBlob);
-              resolve();
+              const img = new Image();
+              img.onload = function() {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                canvas.width = img.width;
+                canvas.height = img.height;
+                ctx.drawImage(img, 0, 0);
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                shiftColorBottomRow(imageData);
+                ctx.putImageData(imageData, 0, 0);
+                canvas.toBlob(function(blob) {
+                  zip.file(fileName, blob);
+                  resolve();
+                }, file.type);
+              };
+              img.src = URL.createObjectURL(modifiedImageBlob);
             };
             reader.onerror = reject;
             reader.readAsArrayBuffer(file);
